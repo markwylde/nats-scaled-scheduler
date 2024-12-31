@@ -1,0 +1,36 @@
+{
+  "name": "nats-scaled-scheduler",
+  "version": "1.0.0",
+  "description": "A scalable scheduler using NATS JetStream",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "types": "lib/main.d.ts",
+  "main": "lib/main.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test tests/*.test.ts",
+    "test:only": "tsx --test --test-only tests/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "scheduler",
+    "nats",
+    "jetstream"
+  ],
+  "author": {
+    "email": "mark@wylde.net",
+    "name": "Mark Wylde",
+    "url": "https://github.com/markwylde"
+  },
+  "dependencies": {
+    "@nats-io/jetstream": "^3.0.0-35",
+    "@nats-io/transport-node": "^3.0.0-33",
+    "cron-parser": "^4.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
