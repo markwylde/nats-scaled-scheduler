@@ -19,7 +19,7 @@ interface JobEntry {
 
 // Define the structure of the options for creating a NATS scheduler
 interface NatsSchedulerOptions {
-  options: ConnectionOptions;
+  nats: ConnectionOptions | NatsConnection;
   streamName: string;
 }
 
@@ -32,8 +32,11 @@ interface NatsScheduler {
   activeJobs: Map<string, JobEntry>;
 }
 
-export const createNatsScheduler = async ({ options, streamName }: NatsSchedulerOptions): Promise<NatsScheduler> => {
-  const nc: NatsConnection = await connect(options);
+export const createNatsScheduler = async ({ nats, streamName }: NatsSchedulerOptions): Promise<NatsScheduler> => {
+  const nc: NatsConnection = (nats as NatsConnection).isClosed === undefined
+    ? await connect(nats as ConnectionOptions)
+    : (nats as NatsConnection);
+
   const js: JetStreamClient = jetstream(nc);
   const jsm: JetStreamManager = await jetstreamManager(nc);
 

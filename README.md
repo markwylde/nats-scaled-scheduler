@@ -25,7 +25,7 @@ npm install nats-scaled-scheduler
 import createNatsScheduler from 'nats-scaled-scheduler';
 
 const scheduler = await createNatsScheduler({
-  options: {
+  nats: {
     servers: ['localhost:4222'],
     user: 'a',
     pass: 'a',
@@ -55,9 +55,11 @@ await scheduler.shutdown();
 
 ```javascript
 import { createNatsScheduler } from 'nats-scaled-scheduler';
+import { connect } from '@nats-io/client';
 
+// Using connection options
 const scheduler1 = await createNatsScheduler({
-  options: {
+  nats: {
     servers: ['localhost:4222'],
     user: 'a',
     pass: 'a',
@@ -65,12 +67,15 @@ const scheduler1 = await createNatsScheduler({
   streamName: 'TEST_SCHEDULER_STREAM'
 });
 
+// Using an existing NATS connection
+const natsConnection = await connect({
+  servers: ['localhost:4222'],
+  user: 'a',
+  pass: 'a',
+});
+
 const scheduler2 = await createNatsScheduler({
-  options: {
-    servers: ['localhost:4222'],
-    user: 'a',
-    pass: 'a',
-  },
+  nats: natsConnection,
   streamName: 'TEST_SCHEDULER_STREAM'
 });
 
@@ -99,7 +104,7 @@ Creates a new NATS scheduler instance.
 #### Parameters
 
 - `options`: An object containing the following properties:
-  - `options`: NATS connection options.
+  - `nats`: Either NATS connection options or an existing NATS connection instance.
   - `streamName`: The name of the JetStream stream to use for scheduling.
 
 #### Returns

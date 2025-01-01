@@ -1,10 +1,11 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert';
+import { connect } from "@nats-io/transport-node";
 import createNatsScheduler, { JobData } from '../src/main.js';
 
 const createTestNatsScheduler = async () => {
   return createNatsScheduler({
-    options: {
+    nats: {
       servers: ['localhost:4222'],
       user: 'a',
       pass: 'a',
@@ -14,6 +15,21 @@ const createTestNatsScheduler = async () => {
 };
 
 describe('NATS Scheduler', () => {
+  it('should connect using existing nats connections', async () => {
+    const scheduler = await createNatsScheduler({
+      nats: await connect({
+        servers: ['localhost:4222'],
+        user: 'a',
+        pass: 'a',
+      }),
+      streamName: 'TEST_SCHEDULER_STREAM'
+    });
+    const jobFn = mock.fn(async () => {});
+    scheduler.addJob(jobFn, '* * * * *', 'testJob');
+    assert.strictEqual(jobFn.mock.callCount(), 0, 'Job function should not be called immediately');
+    await scheduler.shutdown();
+  });
+
   it('should add a job and schedule it', async () => {
     const scheduler = await createTestNatsScheduler();
     const jobFn = mock.fn(async () => {});
