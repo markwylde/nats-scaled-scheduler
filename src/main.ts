@@ -1,5 +1,5 @@
 import { connect, NatsConnection, ConnectionOptions } from "@nats-io/transport-node";
-import { jetstream, jetstreamManager, AckPolicy, ConsumerMessages, JetStreamClient, JetStreamManager } from "@nats-io/jetstream";
+import { jetstream, jetstreamManager, AckPolicy, ConsumerMessages, JetStreamClient, JetStreamManager, RetentionPolicy } from "@nats-io/jetstream";
 import cronParser from 'cron-parser';
 
 // Define the structure of job data
@@ -40,7 +40,8 @@ export const createNatsScheduler = async ({ options, streamName }: NatsScheduler
   // Initialize stream if it doesn't exist
   await jsm.streams.add({
     name: streamName,
-    subjects: [`${streamName}.*`]
+    subjects: [`${streamName}.*`],
+    retention: RetentionPolicy.Workqueue,
   });
 
   // Create a durable consumer for the scheduler
