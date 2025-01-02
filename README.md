@@ -1,15 +1,8 @@
 # NATS Scaled Scheduler
 
-`nats-scaled-scheduler` is a distributed job scheduler built on top of NATS JetStream. It allows you to schedule and run jobs across multiple instances in a scalable and fault-tolerant manner. The scheduler ensures that only one instance runs a job at a time, even if multiple instances are running the same job.
-
-## Features
-
-- **Distributed Scheduling**: Schedule jobs across multiple instances.
-- **Fault Tolerance**: Jobs are executed reliably even if some instances fail.
-- **Cron Expressions**: Schedule jobs using cron expressions.
-- **Scalability**: Add more instances to handle increased job load.
-- **Health Check**: Monitor the health of the scheduler.
-- **Graceful Shutdown**: Stop all jobs gracefully when shutting down.
+`nats-scaled-scheduler` provides two powerful distributed systems built on top of NATS JetStream:
+1. A distributed job scheduler for running cron-based tasks
+2. A distributed job queue for processing work across multiple instances
 
 ## Installation
 
@@ -17,12 +10,12 @@
 npm install nats-scaled-scheduler
 ```
 
-## Usage
+## Scheduler Usage
 
-### Basic Example
+The scheduler allows you to run cron-based jobs across multiple instances in a fault-tolerant manner.
 
 ```javascript
-import createNatsScheduler from 'nats-scaled-scheduler';
+import { createNatsScheduler } from 'nats-scaled-scheduler';
 
 const scheduler = await createNatsScheduler({
   nats: {
@@ -30,120 +23,109 @@ const scheduler = await createNatsScheduler({
     user: 'a',
     pass: 'a',
   },
-  streamName: 'TEST_SCHEDULER_STREAM'
+  streamName: 'MY_SCHEDULER'
 });
 
-const jobFn = async (data) => {
-  console.log('Job executed with data:', data);
-};
-
 // Add a job that runs every minute
-await scheduler.addJob(jobFn, '* * * * *', 'testJob');
+await scheduler.addJob(async (data) => {
+  console.log('Scheduled job running:', data);
+}, '* * * * *', 'myJob');
 
-// Perform a health check
-const health = await scheduler.healthCheck();
-console.log('Health check:', health);
+// Remove a job
+await scheduler.removeJob('myJob');
 
-// Remove the job
-await scheduler.removeJob('testJob');
-
-// Shutdown the scheduler
+// Shutdown
 await scheduler.shutdown();
 ```
 
-### Advanced Example
+### Scheduler API
+
+- **createNatsScheduler(options)**
+  - `options.nats`: NATS connection options or existing connection
+  - `options.streamName`: Name for the scheduler stream
+
+- **scheduler.addJob(fn, cron, name)**
+  - `fn`: Async function to execute
+  - `cron`: Cron expression
+  - `name`: Unique job name
+
+- **scheduler.removeJob(name)**
+- **scheduler.healthCheck()**
+- **scheduler.shutdown()**
+
+## Queue Usage
+
+The queue system allows you to process jobs across multiple workers with features like retries and concurrency control.
 
 ```javascript
-import { createNatsScheduler } from 'nats-scaled-scheduler';
-import { connect } from '@nats-io/client';
+import { createNatsQueue } from 'nats-scaled-scheduler';
 
-// Using connection options
-const scheduler1 = await createNatsScheduler({
+const queue = await createNatsQueue({
   nats: {
     servers: ['localhost:4222'],
     user: 'a',
     pass: 'a',
   },
-  streamName: 'TEST_SCHEDULER_STREAM'
+  name: 'MY_QUEUE'
 });
 
-// Using an existing NATS connection
-const natsConnection = await connect({
-  servers: ['localhost:4222'],
-  user: 'a',
-  pass: 'a',
+// Add a job processor
+queue.process('emails', { concurrency: 5 }, async (job) => {
+  await sendEmail(job.data);
 });
 
-const scheduler2 = await createNatsScheduler({
-  nats: natsConnection,
-  streamName: 'TEST_SCHEDULER_STREAM'
+// Add jobs to the queue
+await queue.push('emails', {
+  to: 'user@example.com',
+  subject: 'Hello'
+}, {
+  priority: 'high',
+  delay: '5m',
+  retries: 3
 });
 
-const jobFn = async (data) => {
-  console.log('Job executed with data:', data);
-};
+// Process multiple items
+await queue.pushBatch('emails', [
+  { to: 'user1@example.com' },
+  { to: 'user2@example.com' }
+]);
 
-// Add the same job to both schedulers
-await scheduler1.addJob(jobFn, '*/1 * * * * *', 'testJob');
-await scheduler2.addJob(jobFn, '*/1 * * * * *', 'testJob');
+// Get queue stats
+const stats = await queue.getStats('emails');
+console.log(stats);
 
-// Wait for the job to be executed
-await new Promise(resolve => setTimeout(resolve, 1200));
-
-// Shutdown both schedulers
-await scheduler1.shutdown();
-await scheduler2.shutdown();
+// Shutdown
+await queue.shutdown();
 ```
 
-## API
+### Queue API
 
-### `createNatsScheduler(options: NatsSchedulerOptions): Promise<NatsScheduler>`
+- **createNatsQueue(options)**
+  - `options.nats`: NATS connection options or existing connection
+  - `options.name`: Name for the queue stream
 
-Creates a new NATS scheduler instance.
+- **queue.push(queueName, data, options)**
+  - `queueName`: Name of the queue
+  - `data`: Job payload
+  - `options.priority`: 'low' | 'medium' | 'high'
+  - `options.delay`: Delay time (e.g., '5m', '1h')
+  - `options.retries`: Number of retry attempts
 
-#### Parameters
+- **queue.pushBatch(queueName, items, options)**
+- **queue.process(queueName, options, handler)**
+  - `options.concurrency`: Number of concurrent jobs
+- **queue.pause(queueName)**
+- **queue.resume(queueName)**
+- **queue.clear(queueName)**
+- **queue.getStats(queueName)**
+- **queue.shutdown()**
 
-- `options`: An object containing the following properties:
-  - `nats`: Either NATS connection options or an existing NATS connection instance.
-  - `streamName`: The name of the JetStream stream to use for scheduling.
+## Events
+The queue emits the following events:
+- `'completed'`: When a job completes successfully
+- `'error'`: When a job fails
 
-#### Returns
-
-A `NatsScheduler` instance.
-
-### `NatsScheduler`
-
-An instance of the NATS scheduler with the following methods:
-
-#### `addJob(jobFn: JobFunction, cronExpression: string, jobName: string): Promise<void>`
-
-Adds a new job to the scheduler.
-
-- `jobFn`: The function to execute when the job runs.
-- `cronExpression`: The cron expression defining the job schedule.
-- `jobName`: A unique name for the job.
-
-#### `removeJob(jobName: string): Promise<void>`
-
-Removes a job from the scheduler.
-
-- `jobName`: The name of the job to remove.
-
-#### `healthCheck(): Promise<boolean>`
-
-Performs a health check on the scheduler.
-
-#### `shutdown(): Promise<void>`
-
-Shuts down the scheduler, stopping all jobs.
-
-#### `activeJobs: Map<string, JobEntry>`
-
-A map of active jobs, where the key is the job name and the value is an object containing the job function and cron expression.
-
-## Running the Tests
-
-To run the tests, use the following command:
+## Running Tests
 
 ```bash
 npm test
@@ -151,10 +133,10 @@ npm test
 
 ## Docker Setup
 
-To run a local NATS server cluster using Docker, use the provided `docker-compose.yml` file:
+To run a local NATS server:
 
 ```bash
 docker-compose up
 ```
 
-This will start two NATS servers in a cluster configuration.
+This will start the required NATS servers in a cluster configuration.

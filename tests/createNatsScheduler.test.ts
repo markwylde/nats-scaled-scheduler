@@ -1,8 +1,7 @@
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert';
 import { connect } from "@nats-io/transport-node";
-import { createNatsScheduler } from '../src/main.js';
-import { JobData } from '../src/createNatsScheduler.js';
+import { createNatsScheduler, JobData } from '../src/main.js';
 
 const createTestNatsScheduler = async () => {
   return createNatsScheduler({
